@@ -44,6 +44,15 @@ RADIO_HQ_HOME="$home" bash -c '. "$1/lib/common.sh"; rhq_put "$RHQ_CONFIG" lang 
 check "put keeps comments and order" "$(cat "$home/config")" $'# comment\nlang=en\nradio=on\nvoice_name=Luca (Enhanced)'
 check "put keeps the symlink" "$([ -L "$home/config" ] && echo link)" "link"
 
+# locks: a stale one (left by a crashed run) is taken over, a fresh one is respected
+lock="$tmp/lock"
+mkdir "$lock" && echo $(( $(date +%s) - 1000 )) > "$lock/since"
+lock_result() { bash -c '. "$1/lib/common.sh"; rhq_lock "$2" 300 && echo taken || echo busy' _ "$root" "$lock"; }
+check "stale lock is taken over" "$(lock_result)" "taken"
+check "fresh lock is respected" "$(lock_result)" "busy"
+rm -rf "$lock"; mkdir "$lock"
+check "lock without timestamp starts ageing" "$(lock_result)$([ -s "$lock/since" ] && echo +since)" "busy+since"
+
 echo
 echo "$pass passed, $fail failed"
 [ "$fail" = 0 ]

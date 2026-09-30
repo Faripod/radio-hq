@@ -7,8 +7,10 @@ click where macOS requires a human. Follow the steps in order.
 **Ground rules**
 
 - Speak the user's language. Keep each message short; ask one thing at a time.
-- Ask before installing any package, changing a macOS setting, or writing outside `~/.config/radio-hq`
-  and the Claude Code plugin directories.
+- Ask before installing any package, changing a macOS setting, or writing anywhere but
+  `~/.config/radio-hq` and what `claude plugin` manages itself (its plugin directories, and the
+  `enabledPlugins` / `extraKnownMarketplaces` entries it adds to `~/.claude/settings.json`: mention it if
+  that file lives in the user's dotfiles).
 - Never open an issue or pull request without the user's explicit OK, and never put their personal data
   in one (session names, message text, usernames, home paths).
 - If a step fails, go to [When something breaks](#when-something-breaks) instead of improvising around it.
@@ -35,8 +37,9 @@ command -v jq terminal-notifier brew; xcode-select -p
 - **terminal-notifier** (optional, recommended): banners that bring back the right terminal on click and
   replace each other per session. Missing and Homebrew present: offer `brew install terminal-notifier`.
   Without it, banners go through `osascript` and still work.
-- **Python 3** from the Command Line Tools (optional): the radio effect and the loudness levelling of the
-  sounds. If `xcode-select -p` fails, do not install anything: the voice is simply clean. Mention that
+- **Python 3** (optional): the radio effect and the loudness levelling of the sounds. Any `python3` on
+  the PATH works; on a stock Mac it comes with the Command Line Tools. If there is none (on a stock Mac:
+  `xcode-select -p` fails), do not install anything: the voice is simply clean. Mention that
   `xcode-select --install` adds it later.
 
 ## 3. Install the plugin
@@ -50,7 +53,8 @@ claude plugin list
 `radio-hq@radio-hq` must be listed **and enabled**; if it is disabled run
 `claude plugin enable radio-hq@radio-hq`. Then ask the user to type `/reload-plugins` in this session
 (you cannot run slash commands yourself), or to open a new session. From then on the hooks are live and
-`radio-hq` is on your Bash PATH.
+`radio-hq` is on your Bash PATH. Steps 4 to 7 call everything by path, so carry on even before the
+reload. The one-time welcome message appears in the next new session, not after a reload.
 
 The plugin lives in the directory printed by:
 
@@ -85,7 +89,8 @@ switches and the voice in use.
 Tell the user to look at the screen and listen, then run `"$RHQ/bin/radio-hq" test wait`. Ask what
 happened:
 
-- **banner, sound and voice** → perfect, go on;
+- **banner, sound and voice** → perfect, go on (`terminal-notifier -list claude-radio-hq-test` shows
+  whether the banner was delivered, if you need to check without the user);
 - **no banner** → macOS has not allowed notifications yet. Open the settings with
   `open "x-apple.systempreferences:com.apple.Notifications-Settings.extension"` and have them allow
   **terminal-notifier** (or **Script Editor** when terminal-notifier is not installed). Suggest the
@@ -127,7 +132,9 @@ Run `"$RHQ/bin/radio-hq" voices`. If no voice ends in `(Premium)` or `(Enhanced)
 ## When something breaks
 
 1. Reproduce it: `tests/run.sh`, `radio-hq test wait`, or a real session with
-   `RADIO_HQ_LOG=/tmp/radio-hq.log` in the environment (one line per event, no message text).
+   `RADIO_HQ_LOG=/tmp/radio-hq.log` in the environment (one line per event, no message text). Runs with
+   `claude -p` usually log nothing at all: Claude Code cancels the asynchronous hook when it exits,
+   before the headless check even runs.
 2. Find the cause in the code. The map: `hooks/notify.sh` decides what to show and say (portable),
    `lib/platform/macos.sh` talks to macOS, `lib/common.sh` holds preferences and categories,
    `bin/radio-hq` is the command, `hooks/welcome.sh` the first run, `tests/` the contract.

@@ -102,6 +102,18 @@ rhq_category() {
   rhq_get "$RHQ_CONFIG" default_category work
 }
 
+# rhq_lock dir max_age: takes the lock, clearing one older than max_age seconds (left by a crashed run)
+rhq_lock() {
+  local since
+  if mkdir "$1" 2>/dev/null; then date +%s > "$1/since"; return 0; fi
+  since=$(cat "$1/since" 2>/dev/null)
+  # a lock without its timestamp starts ageing now
+  [ -n "$since" ] || { date +%s > "$1/since"; return 1; }
+  [ $(( $(date +%s) - since )) -gt "$2" ] || return 1
+  rm -rf "$1"
+  mkdir "$1" 2>/dev/null && date +%s > "$1/since"
+}
+
 # kit.tsv row for a sound name: name, Mixkit id, seconds to play (0 = all), label
 rhq_kit_row() { awk -F'\t' -v n="$1" '$1 == n' "$RHQ_KIT"; }
 

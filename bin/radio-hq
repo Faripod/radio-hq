@@ -54,30 +54,45 @@ status() {
   fi
   if [ -n "$sid" ]; then
     category=$(cat "$RHQ_TAGS/$sid" 2>/dev/null); source=$(t etichetta tag)
-    [ -z "$category" ] && { category=$(rhq_category "$sid" "$PWD"); source=default; }
+    if [ -z "$category" ]; then
+      category=$(rhq_category "$sid" "$PWD"); source=default
+      [ "$category" = none ] && source=$(t "cartella sempre attiva" "always-on folder")
+    fi
     echo "  $(t "questa sessione " "this session    ") ${G}$(rhq_category_label "$category")${X} ${D}($source)${X}"
   fi
   echo
 }
 
-# downloads the missing kit sounds from Mixkit, evened out in loudness when Python is around
+# downloads the missing kit sounds from Mixkit, evened out in loudness when Python is around.
+# Another download in progress (the first-run one) is waited for, not duplicated.
 fetch_sounds() {
-  local lock="$RHQ_SOUNDS/.fetching" name id tmp py
+  local name id py got=""
+  fetch_lock="$RHQ_SOUNDS/.fetching"
   mkdir -p "$RHQ_SOUNDS"
-  mkdir "$lock" 2>/dev/null || return 0
-  tmp=$(mktemp -d "${TMPDIR:-/tmp}/radio-hq-kit.XXXXXX")
+  for _ in $(seq 1 60); do
+    rhq_lock "$fetch_lock" 300 && { got=yes; break; }
+    sleep 0.5
+  done
+  if [ -z "$got" ]; then
+    { t "i suoni si stanno già scaricando, riprova tra poco" "the sounds are already downloading, try again shortly"; echo; } >&2
+    return 1
+  fi
+  fetch_tmp=$(mktemp -d "${TMPDIR:-/tmp}/radio-hq-kit.XXXXXX")
+  trap 'rm -rf "$fetch_tmp" "$fetch_lock"' EXIT
+  trap 'exit 1' INT TERM HUP
   py=$(rhq_python)
   while IFS=$'\t' read -r name id _; do
     [ -f "$RHQ_SOUNDS/$name.wav" ] && continue
-    curl -fsSL --max-time 20 "$MIXKIT/$id/$id-preview.mp3" -o "$tmp/$name.mp3" || continue
-    rhq_to_wav "$tmp/$name.mp3" "$tmp/$name.wav" || continue
-    if [ -n "$py" ] && "$py" "$RHQ_ROOT/lib/normalize.py" "$tmp/$name.wav" "$tmp/$name.norm.wav" 2>/dev/null; then
-      mv "$tmp/$name.norm.wav" "$RHQ_SOUNDS/$name.wav"
+    curl -fsSL --max-time 20 "$MIXKIT/$id/$id-preview.mp3" -o "$fetch_tmp/$name.mp3" || continue
+    rhq_to_wav "$fetch_tmp/$name.mp3" "$fetch_tmp/$name.wav" || continue
+    if [ -n "$py" ] && "$py" "$RHQ_ROOT/lib/normalize.py" "$fetch_tmp/$name.wav" "$fetch_tmp/$name.norm.wav" 2>/dev/null; then
+      mv "$fetch_tmp/$name.norm.wav" "$RHQ_SOUNDS/$name.wav"
     else
-      mv "$tmp/$name.wav" "$RHQ_SOUNDS/$name.wav"
+      mv "$fetch_tmp/$name.wav" "$RHQ_SOUNDS/$name.wav"
     fi
   done < "$RHQ_KIT"
-  rm -rf "$tmp" "$lock"
+  rm -rf "$fetch_tmp" "$fetch_lock"
+  trap - EXIT INT TERM HUP
 }
 
 sounds() {

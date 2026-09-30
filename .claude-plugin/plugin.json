@@ -1,6 +1,6 @@
 {
   "name": "radio-hq",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Walkie-talkie announcements for Claude Code on macOS: a banner, a sound and a radio voice reading the session name whenever a session waits for you or finishes.",
   "author": {
     "name": "Faripod",

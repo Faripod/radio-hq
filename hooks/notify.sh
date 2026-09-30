@@ -120,9 +120,7 @@ fi
 
 # one announcement at a time across sessions; a lock older than 30 s belongs to a crashed run
 for _ in $(seq 1 150); do
-  if mkdir "$lock" 2>/dev/null; then got=yes; date +%s > "$lock/since"; break; fi
-  since=$(cat "$lock/since" 2>/dev/null || date +%s)
-  [ $(( $(date +%s) - since )) -gt 30 ] && rm -rf "$lock"
+  rhq_lock "$lock" 30 && { got=yes; break; }
   sleep 0.2
 done
 
