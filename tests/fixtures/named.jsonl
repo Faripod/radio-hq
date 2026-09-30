@@ -1,0 +1,5 @@
+{"type":"ai-title","aiTitle":"Fix login redirect","sessionId":"s1"}
+{"type":"user","message":{"role":"user","content":"il login rimanda alla pagina sbagliata"},"sessionId":"s1"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"t1","name":"Read","input":{"file_path":"/radio-hq-test/acme-api/auth.py"}}]},"sessionId":"s1"}
+{"type":"custom-title","customTitle":"Login bugfix","sessionId":"s1"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Lancio i test."},{"type":"tool_use","id":"t2","name":"Bash","input":{"command":"npm test","description":"Run the test suite"}}]},"sessionId":"s1"}

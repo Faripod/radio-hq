@@ -1,0 +1,13 @@
+{
+  "name": "radio-hq",
+  "version": "0.1.0",
+  "description": "Walkie-talkie announcements for Claude Code on macOS: a banner, a sound and a radio voice reading the session name whenever a session waits for you or finishes.",
+  "author": {
+    "name": "Faripod",
+    "url": "https://github.com/Faripod"
+  },
+  "homepage": "https://github.com/Faripod/radio-hq",
+  "repository": "https://github.com/Faripod/radio-hq",
+  "license": "MIT",
+  "keywords": ["notifications", "voice", "sound", "hooks", "macos"]
+}

@@ -1,0 +1,1 @@
+{"hook_event_name":"Notification","session_id":"s1","transcript_path":"@FIXTURES@/named.jsonl","cwd":"/radio-hq-test/acme-api","message":"Claude needs your permission to use Bash","notification_type":"permission_prompt"}

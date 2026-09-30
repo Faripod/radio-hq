@@ -1,0 +1,1 @@
+{"hook_event_name":"Stop","session_id":"s1","transcript_path":"@FIXTURES@/missing.jsonl","cwd":"/radio-hq-test/acme-api","last_assistant_message":"**Fatto.** Ho aggiornato `auth.py`\n\n# Test\n> tutti verdi"}

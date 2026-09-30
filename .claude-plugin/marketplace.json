@@ -1,0 +1,15 @@
+{
+  "name": "radio-hq",
+  "description": "radio-hq: walkie-talkie announcements for Claude Code on macOS.",
+  "owner": {
+    "name": "Faripod",
+    "url": "https://github.com/Faripod"
+  },
+  "plugins": [
+    {
+      "name": "radio-hq",
+      "source": "./",
+      "description": "Walkie-talkie announcements for Claude Code on macOS: a banner, a sound and a radio voice reading the session name whenever a session waits for you or finishes."
+    }
+  ]
+}

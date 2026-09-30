@@ -1,0 +1,1 @@
+{"hook_event_name":"SessionStart","session_id":"s1","transcript_path":"@FIXTURES@/named.jsonl","cwd":"/radio-hq-test/acme-api","source":"startup"}

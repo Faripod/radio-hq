@@ -1,0 +1,7 @@
+lang=it
+voice_name=auto
+radio=on
+sound_wait=alert-signal
+sound_done=tank-gear-shift
+default_category=work
+always_on_dirs=

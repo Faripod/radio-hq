@@ -1,0 +1,1 @@
+{"hook_event_name":"PreToolUse","session_id":"s1","transcript_path":"@FIXTURES@/named.jsonl","cwd":"/radio-hq-test/acme-api","tool_name":"AskUserQuestion","tool_input":{"questions":[{"question":"Quale database usiamo per le sessioni?","header":"DB","options":[]}]}}

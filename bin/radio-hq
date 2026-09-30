@@ -1,0 +1,159 @@
+#!/usr/bin/env bash
+#
+# radio-hq: switches and preferences of the Claude Code announcements.
+# Inside a session run it with `! radio-hq ...`; /radio-hq:setup walks you through the preferences.
+#
+
+. "$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)/lib/common.sh"
+rhq_load_platform || { echo "radio-hq: $(uname -s) $(t "non è ancora supportato, vedi PORTING.md" "is not supported yet, see PORTING.md")" >&2; exit 1; }
+rhq_init_config
+
+B=$'\033[1;32m'; G=$'\033[0;32m'; D=$'\033[2;32m'; A=$'\033[0;33m'; X=$'\033[0m'
+MIXKIT="https://assets.mixkit.co/active_storage/sfx"
+
+usage() {
+  if [ "$RHQ_LANG" = en ]; then cat <<EOF
+usage: radio-hq                             status
+       radio-hq on|off                      the voice (banner and sound stay)
+       radio-hq work|personal on|off        audio of the sessions in that category
+       radio-hq tag work|personal|none [id] category of this session (or of the given id)
+       radio-hq set <key> <value>           change a preference (see $RHQ_CONFIG)
+       radio-hq voices                      installed voices for the language, best first
+       radio-hq sounds                      the sound kit (downloads what is missing)
+       radio-hq play <sound>                listen to a kit sound or an audio file
+       radio-hq test [wait|done]            a sample announcement
+EOF
+  else cat <<EOF
+uso: radio-hq                               stato
+     radio-hq on|off                        la voce (banner ed effetto restano)
+     radio-hq lavoro|personale on|off       audio delle sessioni di quella categoria
+     radio-hq tag lavoro|personale|nessuno [id]
+                                            categoria di questa sessione (o dell'id indicato)
+     radio-hq set <chiave> <valore>         cambia una preferenza (vedi $RHQ_CONFIG)
+     radio-hq voices                        voci installate per la lingua, dalla migliore
+     radio-hq sounds                        il kit di suoni (scarica quelli mancanti)
+     radio-hq play <suono>                  ascolta un suono del kit o un file audio
+     radio-hq test [wait|done]              un annuncio di prova
+EOF
+  fi
+}
+
+show() { if [ "$1" = on ]; then printf '%son%s' "$B" "$X"; else printf '%soff%s' "$A" "$X"; fi; }
+
+status() {
+  local sid=${CLAUDE_CODE_SESSION_ID:-} voice_name speaker category source
+  voice_name=$(rhq_get "$RHQ_CONFIG" voice_name auto)
+  speaker=$(rhq_voice "$RHQ_LANG" "$voice_name")
+  echo
+  echo "${B}RADIO HQ${X} ${D}· $(t "annunci di Claude Code" "Claude Code announcements")${X}"
+  echo "  $(t "voce            " "voice           ") $(show "$(rhq_get "$RHQ_STATE" voice on)") ${D}${speaker:-?}$([ "$voice_name" = auto ] && echo " (auto)")${X}"
+  echo "  $(t "lavoro          " "work            ") $(show "$(rhq_get "$RHQ_STATE" work on)")"
+  echo "  $(t "personale       " "personal        ") $(show "$(rhq_get "$RHQ_STATE" personal on)")"
+  if rhq_dnd; then
+    echo "  $(t "non disturbare   ${A}sì, l'audio è spento" "do not disturb   ${A}on, audio is muted")${X}"
+  fi
+  if [ -n "$sid" ]; then
+    category=$(cat "$RHQ_TAGS/$sid" 2>/dev/null); source=$(t etichetta tag)
+    [ -z "$category" ] && { category=$(rhq_category "$sid" "$PWD"); source=default; }
+    echo "  $(t "questa sessione " "this session    ") ${G}$(rhq_category_label "$category")${X} ${D}($source)${X}"
+  fi
+  echo
+}
+
+# downloads the missing kit sounds from Mixkit, evened out in loudness when Python is around
+fetch_sounds() {
+  local lock="$RHQ_SOUNDS/.fetching" name id tmp py
+  mkdir -p "$RHQ_SOUNDS"
+  mkdir "$lock" 2>/dev/null || return 0
+  tmp=$(mktemp -d "${TMPDIR:-/tmp}/radio-hq-kit.XXXXXX")
+  py=$(rhq_python)
+  while IFS=$'\t' read -r name id _; do
+    [ -f "$RHQ_SOUNDS/$name.wav" ] && continue
+    curl -fsSL --max-time 20 "$MIXKIT/$id/$id-preview.mp3" -o "$tmp/$name.mp3" || continue
+    rhq_to_wav "$tmp/$name.mp3" "$tmp/$name.wav" || continue
+    if [ -n "$py" ] && "$py" "$RHQ_ROOT/lib/normalize.py" "$tmp/$name.wav" "$tmp/$name.norm.wav" 2>/dev/null; then
+      mv "$tmp/$name.norm.wav" "$RHQ_SOUNDS/$name.wav"
+    else
+      mv "$tmp/$name.wav" "$RHQ_SOUNDS/$name.wav"
+    fi
+  done < "$RHQ_KIT"
+  rm -rf "$tmp" "$lock"
+}
+
+sounds() {
+  local name id seconds label mark wait done_
+  fetch_sounds
+  wait=$(rhq_get "$RHQ_CONFIG" sound_wait alert-signal)
+  done_=$(rhq_get "$RHQ_CONFIG" sound_done tank-gear-shift)
+  echo
+  while IFS=$'\t' read -r name id seconds label; do
+    mark=""
+    [ "$name" = "$wait" ] && mark=" ${B}← $(t attesa wait)${X}"
+    [ "$name" = "$done_" ] && mark=" ${B}← $(t fine "done")${X}"
+    if [ -f "$RHQ_SOUNDS/$name.wav" ]; then
+      printf '  %s%-16s%s %s%s%s\n' "$G" "$name" "$X" "$D" "$label" "$X$mark"
+    else
+      printf '  %s%-16s %s (%s)%s%s\n' "$A" "$name" "$label" "$(t "non scaricato" "not downloaded")" "$X" "$mark"
+    fi
+  done < "$RHQ_KIT"
+  echo "  ${D}$(t "Suoni di Mixkit (mixkit.co), scaricati sul tuo Mac." "Sounds by Mixkit (mixkit.co), downloaded to your Mac.")${X}"
+  echo
+}
+
+play() {
+  local file seconds
+  [ -n "$1" ] || { usage >&2; exit 1; }
+  IFS=$'\t' read -r file seconds < <(rhq_sound_file "$1")
+  [ -f "$file" ] || fetch_sounds
+  [ -f "$file" ] || { echo "$(t "suono non trovato" "sound not found"): $1" >&2; exit 1; }
+  rhq_play "$file" "$seconds"
+}
+
+voices() {
+  local current
+  current=$(rhq_voice "$RHQ_LANG" "$(rhq_get "$RHQ_CONFIG" voice_name auto)")
+  rhq_voices "$RHQ_LANG" | while IFS=$'\t' read -r locale name; do
+    if [ "$name" = "$current" ]; then printf '  %s%-28s%s %s%s ←%s\n' "$B" "$name" "$X" "$D" "$locale" "$X"
+    else printf '  %-28s %s%s%s\n' "$name" "$D" "$locale" "$X"; fi
+  done
+}
+
+# a real run of the hook with a made-up session called "Radio HQ"
+test_announcement() {
+  local tmp event
+  tmp=$(mktemp -d "${TMPDIR:-/tmp}/radio-hq-test.XXXXXX")
+  echo '{"type":"custom-title","customTitle":"Radio HQ"}' > "$tmp/transcript.jsonl"
+  case "${1:-wait}" in
+    done) event=$(jq -nc --arg t "$tmp/transcript.jsonl" --arg c "$PWD" --arg m "$(t "Prova completata." "Test complete.")" \
+            '{hook_event_name:"Stop", session_id:"radio-hq-test", transcript_path:$t, cwd:$c, last_assistant_message:$m}') ;;
+    *)    event=$(jq -nc --arg t "$tmp/transcript.jsonl" --arg c "$PWD" --arg m "$(t "Annuncio di prova" "Test announcement")" \
+            '{hook_event_name:"Notification", session_id:"radio-hq-test", transcript_path:$t, cwd:$c, message:$m}') ;;
+  esac
+  printf '%s' "$event" | RADIO_HQ_HEADLESS=0 "$RHQ_ROOT/hooks/notify.sh"
+  rm -rf "$tmp"
+}
+
+case "$1" in
+  "")              status ;;
+  on|off)          rhq_put "$RHQ_STATE" voice "$1"; status ;;
+  work|lavoro|personal|personale)
+    case "$2" in on|off) rhq_put "$RHQ_STATE" "$(rhq_category_key "$1")" "$2"; status ;; *) usage >&2; exit 1 ;; esac ;;
+  tag)
+    category=$(rhq_category_key "$2")
+    sid=${3:-${CLAUDE_CODE_SESSION_ID:-}}
+    [ -n "$category" ] || { usage >&2; exit 1; }
+    [ -n "$sid" ] || { echo "$(t "nessuna sessione: lancialo dentro Claude con" "no session: run it inside Claude as") \`! radio-hq tag $2\`" >&2; exit 1; }
+    echo "$category" > "$RHQ_TAGS/$sid"
+    find "$RHQ_TAGS" -type f -mtime +30 -delete 2>/dev/null
+    echo "$(t sessione session) ${sid:0:8} → ${G}$(rhq_category_label "$category")${X}" ;;
+  set)
+    [ -n "$2" ] && [ $# -ge 3 ] || { usage >&2; exit 1; }
+    rhq_put "$RHQ_CONFIG" "$2" "$3"
+    echo "$2=$3" ;;
+  voices)          voices ;;
+  sounds)          sounds ;;
+  play)            play "$2" ;;
+  test)            test_announcement "$2" ;;
+  -h|--help|help)  usage ;;
+  *)               usage >&2; exit 1 ;;
+esac
