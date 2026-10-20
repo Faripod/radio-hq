@@ -9,6 +9,11 @@ a banner with the session name, a short sound effect and a radio voice:
 
 Made for people who run several sessions on several screens and keep missing the one that is stuck.
 
+https://github.com/user-attachments/assets/7bece10f-ab84-4ff3-a004-8d7208ad5198
+
+Unmute the player to hear it. The voice is subtitled: Apple's license does not allow publishing recordings
+of the macOS voices.
+
 ## Install
 
 **Don't install it by hand.** Open Claude Code, paste this and send it:
